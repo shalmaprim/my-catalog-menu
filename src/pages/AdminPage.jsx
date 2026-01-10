@@ -11,6 +11,8 @@ import {
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+// Di bagian paling atas
+import ChangePasswordModal from "../components/ChangePasswordModal";
 
 function AdminPage() {
   const [menus, setMenus] = useState([]);
@@ -39,6 +41,7 @@ function AdminPage() {
   const definedCategories = ["Semua", "Kopi", "Non Kopi", "Makanan", "Snack"];
   // 2. Buat state untuk melacak tab yang aktif
   const [activeTab, setActiveTab] = useState("Semua"); // Default-nya 'Semua'
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // --- (1) FUNGSI READ (Fetch Menus) ---
   const menusCollectionRef = collection(db, "menus");
@@ -174,14 +177,23 @@ function AdminPage() {
   return (
     <div className="container mx-auto p-4 md:p-8">
       {/* Header Dashboard & Tombol Logout */}
-      <div className="flex justify-between items-center mb-8">
+      {/* Header Dashboard & Tombol Logout */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-4 py-2 rounded shadow hover:bg-red-600"
-        >
-          Logout
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsChangePasswordOpen(true)}
+            className="bg-gray-600 text-white px-4 py-2 rounded shadow hover:bg-gray-700 text-sm"
+          >
+            Ganti Password
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded shadow hover:bg-red-600 text-sm"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* --- FORM UNTUK TAMBAH / EDIT MENU --- */}
@@ -429,6 +441,10 @@ function AdminPage() {
           ));
         })()}
       </div>
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </div>
   );
 }

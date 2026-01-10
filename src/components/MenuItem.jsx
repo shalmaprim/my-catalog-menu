@@ -39,7 +39,7 @@ function MenuItem({ item, onItemClick }) {
           </p>
         </div>
 
-        <p className="text-lg font-bold text-green-600 mt-3">
+        <p className="text-lg font-bold text-[#3d251e] mt-3">
           {formatRupiah(item.harga)}
         </p>
       </div>

@@ -11,6 +11,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import LoginPage from "./pages/LoginPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Komponen pelindung
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 
 // 3. Definisikan rute/halaman
 const router = createBrowserRouter([
@@ -22,6 +23,7 @@ const router = createBrowserRouter([
     path: "/login",
     element: <LoginPage />, // Halaman untuk admin login
   },
+  { path: "/forgot-password", element: <ForgotPasswordPage /> },
   {
     path: "/admin",
     element: (

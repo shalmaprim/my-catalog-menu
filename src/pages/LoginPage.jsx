@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { auth } from "../firebase-config";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -53,6 +53,14 @@ function LoginPage() {
         >
           Login
         </button>
+        <div className="mt-4 text-center">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-blue-500 hover:underline"
+          >
+            Lupa Password?
+          </Link>
+        </div>
       </form>
     </div>
   );

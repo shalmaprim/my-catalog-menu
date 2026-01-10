@@ -26,7 +26,7 @@ function MenuDetailModal({ item, isOpen, onClose }) {
       onRequestClose={onClose}
       // Kita gunakan Tailwind untuk styling modalnya
       overlayClassName="fixed inset-0 bg-black/70 z-30 flex justify-center items-center"
-      className="bg-white rounded-lg shadow-xl max-w-lg w-full m-4 overflow-hidden"
+      className="bg-white rounded-lg shadow-xl max-w-lg max-h-140 w-full m-5 overflow-hidden"
       contentLabel="Detail Menu"
     >
       <div className="relative">
@@ -43,13 +43,13 @@ function MenuDetailModal({ item, isOpen, onClose }) {
         <img
           src={item.gambar}
           alt={item.nama}
-          className="w-full h-64 object-cover"
+          className="w-full h-47 object-cover"
         />
 
         {/* Konten Teks */}
         <div className="p-6">
           <h2 className="text-3xl font-bold text-gray-900">{item.nama}</h2>
-          <p className="text-2xl font-bold text-green-600 mt-2">
+          <p className="text-2xl font-bold text-[#3d251e] mt-2">
             {formatRupiah(item.harga)}
           </p>
 
