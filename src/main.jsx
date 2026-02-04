@@ -1,36 +1,29 @@
-// src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx"; // Ini Halaman Katalog kita
-import "./index.css";
-
-// 1. Import
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
-// 2. Buat halaman baru (kita akan buat filenya nanti)
+// Import Halaman
+import App from "./App.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
-import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Komponen pelindung
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 
-// 3. Definisikan rute/halaman
+// Import Komponen Pelindung
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+
+// Import CSS Global
+import "./index.css";
+import "react-responsive-carousel/lib/styles/carousel.min.css";
+
 const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />, // Halaman katalog (yang sudah kita buat)
-  },
-  {
-    path: "/login",
-    element: <LoginPage />, // Halaman untuk admin login
-  },
+  { path: "/", element: <App /> },
+  { path: "/login", element: <LoginPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   {
     path: "/admin",
     element: (
       <ProtectedRoute>
-        {" "}
-        {/* <-- Dibungkus pelindung */}
-        <AdminPage /> {/* <-- Halaman admin rahasia */}
+        <AdminPage />
       </ProtectedRoute>
     ),
   },
@@ -38,7 +31,6 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    {/* 4. Gunakan RouterProvider */}
     <RouterProvider router={router} />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

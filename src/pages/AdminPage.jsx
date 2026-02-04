@@ -1,4 +1,3 @@
-// src/pages/AdminPage.jsx
 import { useState, useEffect } from "react";
 import { db, auth } from "../firebase-config";
 import {
@@ -11,50 +10,98 @@ import {
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-// Di bagian paling atas
 import ChangePasswordModal from "../components/ChangePasswordModal";
+import HeroManagerModal from "../components/HeroManagerModal";
+
+// Import Icons
+import {
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaImages,
+  FaKey,
+  FaSignOutAlt,
+  FaSearch,
+  FaTimes,
+  FaCoffee,
+  FaBoxOpen,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaChevronLeft,
+  FaChevronRight,
+} from "react-icons/fa";
+import { MdOutlineRestaurantMenu } from "react-icons/md";
 
 function AdminPage() {
   const [menus, setMenus] = useState([]);
   const navigate = useNavigate();
 
-  // --- State Form ---
+  // --- STATE FORM ---
   const [nama, setNama] = useState("");
   const [harga, setHarga] = useState(0);
-  const [kategori, setKategori] = useState("Kopi");
+  const [kategori, setKategori] = useState("Coffee");
   const [deskripsi, setDeskripsi] = useState("");
-  const [deskripsiDetail, setDeskripsiDetail] = useState(""); // Pastikan ini ada
+  const [deskripsiDetail, setDeskripsiDetail] = useState("");
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isNew, setIsNew] = useState(false);
 
-  // --- State untuk Gambar & Upload ---
+  // State Gambar
   const [gambar, setGambar] = useState("");
   const [imageFile, setImageFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // --- State Editing ---
+  // State UI Control
   const [isEditing, setIsEditing] = useState(false);
   const [currentMenuId, setCurrentMenuId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // --- STATE BARU UNTUK TABS ---
-  // 1. Definisikan kategori untuk Tabs
-  const definedCategories = ["Semua", "Kopi", "Non Kopi", "Makanan", "Snack"];
-  // 2. Buat state untuk melacak tab yang aktif
-  const [activeTab, setActiveTab] = useState("Semua"); // Default-nya 'Semua'
+  // State Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  // State Modal
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isHeroModalOpen, setIsHeroModalOpen] = useState(false);
 
-  // --- (1) FUNGSI READ (Fetch Menus) ---
+  // Kategori
+  const definedCategories = [
+    "Semua",
+    "Coffee",
+    "Non Coffee",
+    "Refreshers",
+    "Roasted Bean",
+    "Sarapan",
+    "Main Course",
+    "Pastry & Cakes",
+    "Snack",
+  ];
+  const [activeTab, setActiveTab] = useState("Semua");
+
+  // --- FETCH DATA ---
   const menusCollectionRef = collection(db, "menus");
   const fetchMenus = async () => {
     const data = await getDocs(menusCollectionRef);
-    setMenus(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+    setMenus(
+      data.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+        isAvailable:
+          doc.data().isAvailable === undefined ? true : doc.data().isAvailable,
+      })),
+    );
   };
 
   useEffect(() => {
     fetchMenus();
   }, []);
 
-  // --- (2) FUNGSI UPLOAD GAMBAR (KE CLOUDINARY) ---
+  // --- RESET HALAMAN JIKA FILTER BERUBAH ---
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm]);
+
+  // --- UPLOAD IMAGE ---
   const uploadImage = () => {
     return new Promise((resolve, reject) => {
       if (!imageFile) {
@@ -64,77 +111,83 @@ function AdminPage() {
       setIsUploading(true);
       const formData = new FormData();
       formData.append("file", imageFile);
-      // GANTI DENGAN NAMA PRESET-MU
-      formData.append("upload_preset", "katalog_menu");
-      // GANTI DENGAN CLOUD NAME-MU
-      fetch("https://api.cloudinary.com/v1_1/dx4c3un87/image/upload", {
+      const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      formData.append("upload_preset", preset);
+
+      fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: "POST",
         body: formData,
       })
-        .then((response) => response.json())
+        .then((res) => res.json())
         .then((data) => {
           if (data.secure_url) {
-            setIsUploading(false);
             resolve(data.secure_url);
           } else {
-            reject("Upload ke Cloudinary gagal.");
+            alert("Gagal Upload");
+            reject(data);
           }
-        })
-        .catch((error) => {
-          console.error("Upload gagal:", error);
           setIsUploading(false);
-          reject(error);
+        })
+        .catch((err) => {
+          console.error(err);
+          setIsUploading(false);
+          reject(err);
         });
     });
   };
 
-  // --- (3) FUNGSI CREATE & UPDATE (Handle Submit Form) ---
+  // --- HANDLERS ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isEditing && !imageFile) {
-      alert("Harap pilih gambar untuk menu baru.");
-      return;
-    }
-    if (isUploading) {
-      alert("Harap tunggu upload gambar selesai.");
-      return;
-    }
     try {
-      const imageURL = await uploadImage();
+      const result = await uploadImage();
+      const imageURL = result || "";
+      const finalPrice = kategori === "Roasted Bean" ? 0 : Number(harga);
+
       const menuData = {
         nama,
-        harga: Number(harga),
+        harga: finalPrice,
         kategori,
         deskripsi,
-        deskripsiDetail, // Pastikan ini ikut tersimpan
+        deskripsiDetail,
         isBestSeller,
         isNew,
         gambar: imageURL,
+        isAvailable: true,
       };
+
       if (isEditing) {
-        const menuDoc = doc(db, "menus", currentMenuId);
-        await updateDoc(menuDoc, menuData);
+        await updateDoc(doc(db, "menus", currentMenuId), menuData);
       } else {
         await addDoc(menusCollectionRef, menuData);
       }
       fetchMenus();
       clearForm();
+      setShowForm(false);
     } catch (error) {
-      console.error("Gagal menyimpan menu:", error);
-      alert("Gagal menyimpan menu: " + error.message);
+      alert("Error: " + error.message);
     }
   };
 
-  // --- (4) FUNGSI DELETE (Hapus Menu) ---
   const handleDelete = async (id) => {
-    if (window.confirm("Yakin ingin menghapus menu ini?")) {
-      const menuDoc = doc(db, "menus", id);
-      await deleteDoc(menuDoc);
+    if (window.confirm("Yakin hapus menu ini selamanya?")) {
+      await deleteDoc(doc(db, "menus", id));
       fetchMenus();
     }
   };
 
-  // --- (5) FUNGSI UNTUK EDIT ---
+  const handleToggleAvailability = async (menu) => {
+    try {
+      await updateDoc(doc(db, "menus", menu.id), {
+        isAvailable: !menu.isAvailable,
+      });
+      fetchMenus();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleEdit = (menu) => {
     setIsEditing(true);
     setCurrentMenuId(menu.id);
@@ -142,305 +195,463 @@ function AdminPage() {
     setHarga(menu.harga);
     setKategori(menu.kategori);
     setDeskripsi(menu.deskripsi || "");
-    setDeskripsiDetail(menu.deskripsiDetail || ""); // Pastikan ini ada
+    setDeskripsiDetail(menu.deskripsiDetail || "");
     setIsBestSeller(menu.isBestSeller || false);
     setIsNew(menu.isNew || false);
     setGambar(menu.gambar || "");
-    setImageFile(null);
+
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // --- FUNGSI LOGOUT ---
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
   };
 
-  // Fungsi untuk membersihkan form (pastikan lengkap)
   const clearForm = () => {
     setNama("");
     setHarga(0);
-    setKategori("Kopi");
+    setKategori("Coffee");
     setDeskripsi("");
-    setDeskripsiDetail(""); // Pastikan ini ada
+    setDeskripsiDetail("");
     setIsBestSeller(false);
     setIsNew(false);
     setGambar("");
     setImageFile(null);
-    setIsUploading(false);
     setIsEditing(false);
     setCurrentMenuId(null);
-    const fileInput = document.getElementById("file-input");
-    if (fileInput) fileInput.value = null;
   };
 
-  // --- TAMPILAN (JSX) ---
+  // --- LOGIKA FILTER & PAGINATION ---
+  const filteredMenus = menus
+    .filter((m) => {
+      const matchCategory =
+        activeTab === "Semua" ? true : m.kategori === activeTab;
+      const matchSearch = m.nama
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      return matchCategory && matchSearch;
+    })
+    .sort((a, b) => a.nama.localeCompare(b.nama));
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredMenus.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredMenus.length / itemsPerPage);
+
+  const handleNext = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+  const handlePrev = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      {/* Header Dashboard & Tombol Logout */}
-      {/* Header Dashboard & Tombol Logout */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <div className="flex gap-2">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
+      {/* --- NAVBAR --- */}
+      <nav className="bg-neutral-900 shadow-md fixed w-full z-20 top-0 left-0 h-16 flex items-center justify-between px-4 md:px-8 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="bg-white/10 p-2 rounded-lg text-amber-500 border border-white/5">
+            <FaCoffee size={20} />
+          </div>
+          <h1 className="text-lg md:text-xl font-bold tracking-wide text-white hidden md:block font-serif">
+            Admin Panel
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Menu Mobile: Ikon saja */}
+          <button
+            onClick={() => setIsHeroModalOpen(true)}
+            className="p-2 text-gray-300 hover:text-white bg-white/10 rounded-lg md:hidden"
+          >
+            <FaImages size={16} />
+          </button>
+
+          <button
+            onClick={() => setIsHeroModalOpen(true)}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <FaImages /> <span>Banner</span>
+          </button>
+
           <button
             onClick={() => setIsChangePasswordOpen(true)}
-            className="bg-gray-600 text-white px-4 py-2 rounded shadow hover:bg-gray-700 text-sm"
+            className="p-2 text-gray-300 hover:text-white bg-white/10 rounded-lg md:hidden"
           >
-            Ganti Password
+            <FaKey size={16} />
           </button>
+
+          <button
+            onClick={() => setIsChangePasswordOpen(true)}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <FaKey /> <span>Password</span>
+          </button>
+
+          <div className="h-6 w-px bg-white/10 mx-1"></div>
+
           <button
             onClick={handleLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded shadow hover:bg-red-600 text-sm"
+            className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 text-xs md:text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition-all"
           >
-            Logout
+            <FaSignOutAlt /> <span className="hidden md:inline">Logout</span>
           </button>
         </div>
-      </div>
+      </nav>
 
-      {/* --- FORM UNTUK TAMBAH / EDIT MENU --- */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-lg shadow-md mb-12"
-      >
-        <h2 className="text-2xl font-semibold mb-4">
-          {isEditing ? "Edit Menu" : "Tambah Menu Baru"}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Kolom Kiri */}
-          <div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">Nama Menu</label>
+      {/* --- MAIN CONTENT --- */}
+      <main className="container mx-auto px-4 pt-20 md:pt-24 pb-12 max-w-7xl">
+        {/* HEADER & SEARCH */}
+        <div className="flex flex-col md:flex-row justify-between items-end mb-6 md:mb-8 gap-4">
+          <div className="w-full md:w-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 tracking-tight">
+              Manajemen Menu
+            </h2>
+            <p className="text-gray-500 text-xs md:text-sm mt-1">
+              Total <strong>{filteredMenus.length}</strong> menu.
+            </p>
+          </div>
+
+          <div className="flex gap-2 md:gap-3 w-full md:w-auto">
+            <div className="relative flex-grow md:flex-grow-0">
+              <FaSearch className="absolute left-3 top-3 text-gray-400" />
               <input
                 type="text"
-                value={nama}
-                onChange={(e) => setNama(e.target.value)}
-                className="w-full p-2 border rounded"
-                required
+                placeholder="Cari..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 w-full md:w-64 text-sm"
               />
             </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">Harga (Rp)</label>
-              <input
-                type="number"
-                value={harga}
-                onChange={(e) => setHarga(e.target.value)}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">Kategori</label>
-              <select
-                value={kategori}
-                onChange={(e) => setKategori(e.target.value)}
-                className="w-full p-2 border rounded"
-              >
-                <option value="Kopi">Kopi</option>
-                <option value="Non Kopi">Non Kopi</option>
-                <option value="Makanan">Makanan</option>
-                <option value="Snack">Snack</option>
-              </select>
-            </div>
-          </div>
-          {/* Kolom Kanan */}
-          <div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">
-                Deskripsi Singkat
-              </label>
-              <textarea
-                value={deskripsi}
-                onChange={(e) => setDeskripsi(e.target.value)}
-                className="w-full p-2 border rounded"
-                rows="3"
-              ></textarea>
-            </div>
 
-            {/* Input Deskripsi Detail */}
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">
-                Deskripsi Detail (untuk modal)
-              </label>
-              <textarea
-                value={deskripsiDetail}
-                onChange={(e) => setDeskripsiDetail(e.target.value)}
-                className="w-full p-2 border rounded"
-                rows="3"
-              ></textarea>
-            </div>
-
-            {/* Input Gambar */}
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">Gambar Menu</label>
-              <input
-                id="file-input"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImageFile(e.target.files[0])}
-                className="w-full p-2 border rounded file:mr-4 file:py-2 file:px-4
-                           file:rounded-full file:border-0 file:text-sm file:font-semibold
-                           file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
-              />
-              {isEditing && gambar && !imageFile && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600 mb-1">Gambar saat ini:</p>
-                  <img
-                    src={gambar}
-                    alt="Preview"
-                    className="w-32 h-32 object-cover rounded"
-                  />
-                </div>
-              )}
-              {isUploading && (
-                <div className="mt-2 text-blue-600">
-                  Mengunggah gambar... mohon tunggu...
-                </div>
-              )}
-            </div>
-
-            {/* Checkbox */}
-            <div className="flex space-x-6">
-              <div className="mb-4 flex items-center">
-                <input
-                  type="checkbox"
-                  checked={isBestSeller}
-                  onChange={(e) => setIsBestSeller(e.target.checked)}
-                  className="mr-2 h-5 w-5"
-                />
-                <label className="text-gray-700">Best Seller</label>
-              </div>
-              <div className="mb-4 flex items-center">
-                <input
-                  type="checkbox"
-                  checked={isNew}
-                  onChange={(e) => setIsNew(e.target.checked)}
-                  className="mr-2 h-5 w-5"
-                />
-                <label className="text-gray-700">Menu Terbaru</label>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Tombol Submit */}
-        <div className="mt-4 flex space-x-2">
-          <button
-            type="submit"
-            className="bg-blue-500 text-white px-6 py-2 rounded shadow hover:bg-blue-600 disabled:bg-gray-400"
-            disabled={isUploading}
-          >
-            {isUploading
-              ? "Mengunggah..."
-              : isEditing
-              ? "Update Menu"
-              : "Simpan Menu"}
-          </button>
-          {isEditing && (
             <button
-              type="button"
-              onClick={clearForm}
-              className="bg-gray-500 text-white px-6 py-2 rounded shadow hover:bg-gray-600"
+              onClick={() => {
+                setShowForm(!showForm);
+                clearForm();
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold shadow-lg transition-all text-sm whitespace-nowrap ${showForm ? "bg-gray-200 text-gray-700" : "bg-neutral-900 text-amber-500 hover:bg-black"}`}
             >
-              Batal
+              {showForm ? (
+                <FaTimes />
+              ) : (
+                <>
+                  <FaPlus /> Tambah
+                </>
+              )}
             </button>
-          )}
+          </div>
         </div>
-      </form>
 
-      {/* --- DAFTAR MENU (VERSI BARU DENGAN TABS) --- */}
-      <h2 className="text-2xl font-semibold mb-4">Daftar Menu</h2>
+        {/* FORMULIR */}
+        {showForm && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 md:p-8 mb-8 animate-fade-in-down">
+            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+              <h3 className="text-lg md:text-xl font-bold text-neutral-900 flex items-center gap-2">
+                {isEditing ? (
+                  <>
+                    <FaEdit className="text-amber-500" /> Edit Menu
+                  </>
+                ) : (
+                  <>
+                    <FaPlus className="text-neutral-900" /> Tambah Menu
+                  </>
+                )}
+              </h3>
+            </div>
+            <form onSubmit={handleSubmit}>
+              {/* ... (Form Content sama seperti sebelumnya) ... */}
+              {/* Untuk mempersingkat kode respons, bagian form sama persis dengan sebelumnya */}
+              {/* Pastikan class input menggunakan w-full agar responsif */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs md:text-sm font-bold text-gray-700 mb-1">
+                      Kategori
+                    </label>
+                    <select
+                      value={kategori}
+                      onChange={(e) => setKategori(e.target.value)}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                    >
+                      {definedCategories.slice(1).map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-bold text-gray-700 mb-1">
+                      Nama Menu
+                    </label>
+                    <input
+                      type="text"
+                      value={nama}
+                      onChange={(e) => setNama(e.target.value)}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                      required
+                    />
+                  </div>
+                  {kategori !== "Roasted Bean" && (
+                    <div>
+                      <label className="block text-xs md:text-sm font-bold text-gray-700 mb-1">
+                        Harga (Rp)
+                      </label>
+                      <input
+                        type="number"
+                        value={harga}
+                        onChange={(e) => setHarga(e.target.value)}
+                        className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs md:text-sm font-bold text-gray-700 mb-1">
+                      Deskripsi
+                    </label>
+                    <textarea
+                      value={deskripsi}
+                      onChange={(e) => setDeskripsi(e.target.value)}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                      rows="3"
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-bold text-gray-700 mb-1">
+                      Gambar
+                    </label>
+                    <input
+                      type="file"
+                      onChange={(e) => setImageFile(e.target.files[0])}
+                      className="w-full text-xs text-gray-500"
+                    />
+                  </div>
+                  {kategori !== "Roasted Bean" && (
+                    <div className="flex gap-4 pt-2">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isBestSeller}
+                          onChange={(e) => setIsBestSeller(e.target.checked)}
+                          className="mr-2"
+                        />{" "}
+                        <span className="text-xs md:text-sm font-bold">
+                          Best Seller
+                        </span>
+                      </label>
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isNew}
+                          onChange={(e) => setIsNew(e.target.checked)}
+                          className="mr-2"
+                        />{" "}
+                        <span className="text-xs md:text-sm font-bold">
+                          New
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 text-sm font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploading}
+                  className="px-6 py-2 rounded-lg text-white bg-neutral-900 font-bold text-sm shadow-lg flex items-center gap-2"
+                >
+                  {isUploading ? "..." : isEditing ? "Update" : "Simpan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
-      {/* --- Tombol Tabs --- */}
-      <div className="flex flex-wrap space-x-2 mb-6 border-b border-gray-200">
-        {definedCategories.map((category) => {
-          const isActive = category === activeTab;
-          return (
+        {/* TABS KATEGORI */}
+        <div className="flex overflow-x-auto pb-2 gap-2 mb-6 scrollbar-hide">
+          {definedCategories.map((cat) => (
             <button
-              key={category}
-              onClick={() => setActiveTab(category)}
+              key={cat}
+              onClick={() => setActiveTab(cat)}
+              className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all border
+              ${
+                activeTab === cat
+                  ? "bg-neutral-900 text-white border-neutral-900 shadow-md"
+                  : "bg-white text-gray-500 border-gray-200"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* --- GRID MENU ITEMS (MOBILE 2 KOLOM) --- */}
+        {/* Perubahan Utama ada di grid-cols-2 dan gap-3 untuk mobile */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 mb-12">
+          {currentItems.map((menu) => {
+            const isRoastedBean = menu.kategori === "Roasted Bean";
+            return (
+              <div
+                key={menu.id}
+                className={`group bg-white rounded-xl md:rounded-2xl shadow-sm border flex flex-col overflow-hidden ${isRoastedBean ? "border-amber-400 ring-1 md:ring-2 ring-amber-100" : "border-gray-100"}`}
+              >
+                {/* Header Kartu (Gambar lebih pendek di HP) */}
+                <div className="relative h-32 md:h-48 overflow-hidden bg-gray-100">
+                  <img
+                    src={
+                      menu.gambar && menu.gambar !== ""
+                        ? menu.gambar
+                        : "https://placehold.co/400x300?text=No+Img"
+                    }
+                    alt={menu.nama}
+                    className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${!menu.isAvailable ? "grayscale opacity-70" : ""}`}
+                  />
+                  {!menu.isAvailable && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
+                      <span className="bg-red-500 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded shadow uppercase border border-red-400">
+                        Habis
+                      </span>
+                    </div>
+                  )}
+                  {/* Badge Kategori (Kecil di HP) */}
+                  <div className="absolute top-2 left-2 md:top-3 md:left-3">
+                    <span className="bg-white/95 backdrop-blur text-neutral-900 text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm uppercase">
+                      {menu.kategori}
+                    </span>
+                  </div>
+                  {/* Badge Special */}
+                  <div className="absolute top-2 right-2 md:top-3 md:right-3 flex flex-col gap-1 items-end">
+                    {menu.isBestSeller && (
+                      <span className="bg-amber-500 text-black text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                        ★
+                      </span>
+                    )}
+                    {menu.isNew && (
+                      <span className="bg-blue-600 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                        NEW
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Body Kartu (Padding lebih kecil di HP) */}
+                <div className="p-3 md:p-5 flex flex-col flex-1">
+                  <div className="flex-1">
+                    {/* Judul lebih kecil di HP */}
+                    <h3 className="text-sm md:text-lg font-bold text-neutral-900 mb-0.5 md:mb-1 leading-tight truncate group-hover:text-amber-600 transition-colors">
+                      {menu.nama}
+                    </h3>
+
+                    {isRoastedBean ? (
+                      <p className="text-[10px] md:text-xs font-bold text-amber-600 uppercase tracking-wide flex items-center gap-1">
+                        <FaBoxOpen /> Stock
+                      </p>
+                    ) : (
+                      <p className="text-neutral-600 font-bold font-mono text-xs md:text-base">
+                        {new Intl.NumberFormat("id-ID", {
+                          style: "currency",
+                          currency: "IDR",
+                          minimumFractionDigits: 0,
+                        }).format(menu.harga)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Footer Aksi (Layout lebih padat di HP) */}
+                  <div className="mt-3 md:mt-6 pt-2 md:pt-4 border-t border-gray-50 flex items-center justify-between gap-2">
+                    {/* Toggle Stok (Kecil di HP) */}
+                    <button
+                      onClick={() => handleToggleAvailability(menu)}
+                      className={`flex-1 py-1.5 md:py-2 px-1 md:px-3 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 border
+                        ${
+                          menu.isAvailable
+                            ? "bg-white text-green-600 border-green-200 hover:bg-green-50"
+                            : "bg-white text-red-500 border-red-200 hover:bg-red-50"
+                        }
+                      `}
+                    >
+                      {menu.isAvailable ? "Ready" : "Habis"}
+                    </button>
+
+                    {/* Tombol Edit/Delete (Kecil di HP) */}
+                    <div className="flex gap-1 border-l border-gray-100 pl-1 md:pl-2">
+                      <button
+                        onClick={() => handleEdit(menu)}
+                        className="p-1.5 md:p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
+                      >
+                        <FaEdit size={14} className="md:w-4 md:h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(menu.id)}
+                        className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      >
+                        <FaTrash size={14} className="md:w-4 md:h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* --- PAGINATION CONTROL --- */}
+        {filteredMenus.length > itemsPerPage && (
+          <div className="flex justify-center items-center gap-2 md:gap-3 mt-8 pb-8">
+            <button
+              onClick={handlePrev}
+              disabled={currentPage === 1}
               className={`
-                py-2 px-4 font-medium text-sm
-                transition-all duration-200
+                flex items-center gap-1 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm transition-all border shadow-sm
                 ${
-                  isActive
-                    ? "border-b-2 border-blue-600 text-blue-600"
-                    : "text-gray-500 hover:text-gray-700"
+                  currentPage === 1
+                    ? "bg-gray-100 text-gray-400 border-transparent cursor-not-allowed"
+                    : "bg-white text-neutral-900 border-gray-300"
                 }
               `}
             >
-              {category}
+              <FaChevronLeft size={10} /> Prev
             </button>
-          );
-        })}
-      </div>
 
-      {/* --- Daftar Menu yang Sudah Difilter --- */}
-      <div className="space-y-4">
-        {(() => {
-          // 3. Filter menu berdasarkan activeTab
-          const filteredMenus =
-            activeTab === "Semua"
-              ? menus.sort((a, b) => a.nama.localeCompare(b.nama)) // Urutkan 'Semua' berdasarkan nama
-              : menus.filter((menu) => menu.kategori === activeTab);
-
-          // 4. Tampilkan pesan jika kosong
-          if (filteredMenus.length === 0) {
-            return (
-              <p className="text-gray-500 text-center py-4">
-                Tidak ada menu di kategori ini.
-              </p>
-            );
-          }
-
-          // 5. Render daftar menu yang sudah difilter
-          return filteredMenus.map((menu) => (
-            <div
-              key={menu.id}
-              className="flex flex-row items-start bg-white p-4 rounded-lg shadow"
-            >
-              {/* 1. Kolom Gambar */}
-              <img
-                src={menu.gambar}
-                alt={menu.nama}
-                className="w-16 h-16 md:w-20 md:h-20 object-cover rounded mr-4 shrink-0"
-                // 'shrink-0' agar gambar tidak 'penyok'
-              />
-
-              {/* 2. Kolom Konten (Teks & Tombol) */}
-              <div className="flex-1 flex flex-col justify-between h-full">
-                {/* Bagian Teks */}
-                <div>
-                  <h3 className="text-lg md:text-xl font-semibold">
-                    {menu.nama}
-                  </h3>
-                  <p className="text-sm md:text-base text-gray-600">
-                    {menu.kategori} -{" "}
-                    {new Intl.NumberFormat("id-ID", {
-                      style: "currency",
-                      currency: "IDR",
-                      minimumFractionDigits: 0,
-                    }).format(menu.harga)}
-                  </p>
-                </div>
-
-                {/* Bagian Tombol */}
-                <div className="space-x-2 mt-3">
-                  <button
-                    onClick={() => handleEdit(menu)}
-                    className="bg-yellow-500 text-white px-3 py-1 rounded shadow hover:bg-yellow-600 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(menu.id)}
-                    className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-600 text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+            <div className="px-3 py-1.5 md:px-5 md:py-2 bg-white rounded-lg border border-gray-300 text-xs md:text-sm font-bold text-neutral-900 shadow-sm">
+              <span className="text-amber-600">{currentPage}</span> /{" "}
+              {totalPages}
             </div>
-          ));
-        })()}
-      </div>
+
+            <button
+              onClick={handleNext}
+              disabled={currentPage === totalPages}
+              className={`
+                flex items-center gap-1 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm transition-all border shadow-sm
+                ${
+                  currentPage === totalPages
+                    ? "bg-gray-100 text-gray-400 border-transparent cursor-not-allowed"
+                    : "bg-white text-neutral-900 border-gray-300"
+                }
+              `}
+            >
+              Next <FaChevronRight size={10} />
+            </button>
+          </div>
+        )}
+      </main>
+
+      <HeroManagerModal
+        isOpen={isHeroModalOpen}
+        onClose={() => setIsHeroModalOpen(false)}
+      />
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}

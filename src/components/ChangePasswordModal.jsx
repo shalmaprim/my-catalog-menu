@@ -1,4 +1,3 @@
-// src/components/ChangePasswordModal.jsx
 import { useState } from "react";
 import Modal from "react-modal";
 import { auth } from "../firebase-config";
@@ -12,141 +11,104 @@ function ChangePasswordModal({ isOpen, onClose }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [msg, setMsg] = useState({ type: "", text: "" });
+  const [loading, setLoading] = useState(false);
 
-  const handleChangePassword = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (newPassword !== confirmPassword) {
-      setError("Password baru dan konfirmasi tidak cocok.");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError("Password baru minimal 6 karakter.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    const user = auth.currentUser;
-    // Buat kredensial dari password lama untuk verifikasi
-    const credential = EmailAuthProvider.credential(
-      user.email,
-      currentPassword
-    );
-
+    if (newPassword !== confirmPassword)
+      return setMsg({
+        type: "error",
+        text: "Password konfirmasi tidak cocok.",
+      });
+    setLoading(true);
+    setMsg({ type: "", text: "" });
     try {
-      // 1. Re-autentikasi (Cek password lama)
+      const user = auth.currentUser;
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        currentPassword,
+      );
       await reauthenticateWithCredential(user, credential);
-
-      // 2. Update password
       await updatePassword(user, newPassword);
-
-      setSuccess("Password berhasil diubah!");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-
-      // Tutup modal setelah 2 detik
+      setMsg({ type: "success", text: "Password berhasil diubah!" });
       setTimeout(() => {
         onClose();
-        setSuccess("");
+        setMsg({ type: "", text: "" });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
       }, 2000);
     } catch (err) {
-      console.error(err);
-      if (err.code === "auth/wrong-password") {
-        setError("Password lama salah.");
-      } else {
-        setError("Gagal mengubah password: " + err.message);
-      }
+      setMsg({
+        type: "error",
+        text:
+          err.code === "auth/wrong-password"
+            ? "Password lama salah."
+            : "Gagal: " + err.message,
+      });
     }
-    setIsLoading(false);
+    setLoading(false);
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onClose}
-      overlayClassName="fixed inset-0 bg-black/70 z-50 flex justify-center items-center"
       className="bg-white rounded-lg shadow-xl max-w-md w-full m-4 p-6 outline-none"
+      overlayClassName="fixed inset-0 bg-black/70 z-50 flex justify-center items-center"
     >
-      <h2 className="text-xl font-bold mb-4 text-gray-800">
-        Ganti Password Admin
-      </h2>
-
-      {error && (
-        <p className="bg-red-100 text-red-700 p-2 rounded mb-3 text-sm">
-          {error}
+      <h2 className="text-xl font-bold mb-4">Ganti Password</h2>
+      {msg.text && (
+        <p
+          className={`p-2 rounded mb-3 text-sm ${msg.type === "error" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}
+        >
+          {msg.text}
         </p>
       )}
-      {success && (
-        <p className="bg-green-100 text-green-700 p-2 rounded mb-3 text-sm">
-          {success}
-        </p>
-      )}
-
-      <form onSubmit={handleChangePassword}>
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password Lama
-          </label>
-          <input
-            type="password"
-            className="w-full p-2 border rounded"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password Baru
-          </label>
-          <input
-            type="password"
-            className="w-full p-2 border rounded"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-          />
-        </div>
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Konfirmasi Password Baru
-          </label>
-          <input
-            type="password"
-            className="w-full p-2 border rounded"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-        </div>
-
+      <form onSubmit={handleSubmit}>
+        <input
+          type="password"
+          placeholder="Password Lama"
+          className="w-full p-2 border rounded mb-3"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password Baru"
+          className="w-full p-2 border rounded mb-3"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Konfirmasi Password Baru"
+          className="w-full p-2 border rounded mb-6"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+        />
         <div className="flex justify-end space-x-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300"
+            className="px-4 py-2 bg-gray-200 rounded"
           >
             Batal
           </button>
           <button
             type="submit"
-            disabled={isLoading}
-            className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-blue-400"
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded"
           >
-            {isLoading ? "Memproses..." : "Simpan Password"}
+            {loading ? "..." : "Simpan"}
           </button>
         </div>
       </form>
     </Modal>
   );
 }
-
 export default ChangePasswordModal;

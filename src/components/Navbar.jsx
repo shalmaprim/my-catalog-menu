@@ -1,82 +1,68 @@
-// src/components/Navbar.jsx
-
-// 1. Import Link dari router
 import { Link, useNavigate } from "react-router-dom";
-
-// 2. Import hooks dan auth dari firebase
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "../firebase-config";
 import { signOut } from "firebase/auth";
-
-// 3. Import ikon-ikon yang kita butuhkan
+// Hapus FaCoffee jika tidak dipakai lagi, atau biarkan saja tidak apa-apa
 import { FaUserCircle, FaTachometerAlt, FaSignOutAlt } from "react-icons/fa";
 
 function Navbar({ namaKafe }) {
-  // 4. Gunakan hook 'useAuthState' untuk cek status login
-  const [user, loading] = useAuthState(auth);
+  const [user] = useAuthState(auth);
   const navigate = useNavigate();
 
-  // 5. Buat fungsi logout
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      // Arahkan kembali ke halaman login setelah logout
-      navigate("/login");
-    } catch (error) {
-      console.error("Gagal logout:", error);
-    }
+    await signOut(auth);
+    navigate("/login");
   };
 
   return (
-    <nav className="bg-white shadow-md p-4 sticky top-0 z-20">
-      {/* 6. Ubah container menjadi flex 'justify-between' */}
-      <div className="container mx-auto flex justify-between items-center">
-        {/* --- SISI KIRI: Logo & Nama Kafe (Tidak Berubah) --- */}
-        <div className="flex items-center space-x-3">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-neutral-900 shadow-md transition-all border-b border-white/5">
+      <div className="container mx-auto px-4 h-16 flex justify-between items-center">
+        {/* Logo & Nama */}
+        <div className="flex items-center gap-3">
+          {/* --- BAGIAN INI YANG DIUBAH (DARI ICON JADI GAMBAR) --- */}
           <img
-            src="/logo.png" // Sesuaikan nama file ini
+            src="/logo.png" // Pastikan nama file di folder public sesuai (logo.png / logo.jpg)
             alt="Logo Kafe"
-            className="h-10 w-10 object-contain"
+            className="h-10 w-auto object-contain rounded-lg"
           />
+          {/* ----------------------------------------------------- */}
+
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+            <h1 className="text-xl font-bold text-white tracking-wide leading-none font-serif">
               {namaKafe}
             </h1>
-            <p className="text-sm text-gray-600">Katalog Menu Digital</p>
+            <p className="text-[10px] text-gray-400 font-medium tracking-widest uppercase mt-0.5">
+              Est. 2017
+            </p>
           </div>
         </div>
 
-        {/* --- SISI KANAN: Ikon Admin (BARU) --- */}
-        <div className="flex items-center space-x-4">
-          {loading ? (
-            // Tampilkan placeholder saat status login sedang dicek
-            <div className="w-7 h-7 rounded-full bg-gray-200 animate-pulse"></div>
-          ) : user ? (
-            // --- JIKA SUDAH LOGIN ---
+        {/* Menu Kanan (Tetap Sama) */}
+        <div className="flex items-center gap-4">
+          {user ? (
             <>
               <Link
                 to="/admin"
-                title="Dashboard Admin"
-                className="text-gray-600 hover:text-blue-500 transition-colors"
+                className="flex items-center gap-2 text-sm font-medium text-white hover:text-amber-400 transition-colors bg-white/10 px-3 py-1.5 rounded-full border border-white/5"
               >
-                <FaTachometerAlt size={26} />
+                <FaTachometerAlt />{" "}
+                <span className="hidden sm:inline">Dashboard</span>
               </Link>
               <button
                 onClick={handleLogout}
+                className="text-gray-400 hover:text-red-400 transition-colors"
                 title="Logout"
-                className="text-gray-600 hover:text-red-500 transition-colors"
               >
-                <FaSignOutAlt size={26} />
+                <FaSignOutAlt size={20} />
               </button>
             </>
           ) : (
-            // --- JIKA BELUM LOGIN ---
             <Link
               to="/login"
-              title="Admin Login"
-              className="text-gray-600 hover:text-yellow-500 transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
             >
-              <FaUserCircle size={28} />
+              <FaUserCircle size={22} />{" "}
+              <span className="hidden sm:inline">Staff</span>
             </Link>
           )}
         </div>
