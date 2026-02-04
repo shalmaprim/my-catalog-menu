@@ -19,7 +19,7 @@ Modal.setAppElement("#root");
 function App() {
   const namaKafe = "Kedai Kopi Apik";
   const infoPromo =
-    "Nikmati suasan hangat dan kopi terbaik di Kedai Kopi Apik.";
+    "Nikmati suasana hangat dan kopi terbaik di Kedai Kopi Apik.";
 
   // --- KATEGORI BARU ---
   const tabKategori = [
